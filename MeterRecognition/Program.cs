@@ -404,7 +404,7 @@ namespace MeterRecognition
                     mask[x, y] = range < MAX_VALUE_BEFORE_SEEN_AS_WHITE ? false : true;
                 }
             }
-            Dump(width, height, mask);
+           // Dump(width, height, mask);
 
 
             int leftBoundary = int.MaxValue;
@@ -487,7 +487,7 @@ namespace MeterRecognition
                         mask[x, y] = false;
                 }
             }
-            Dump(width, height, mask);
+            //Dump(width, height, mask);
 
             int[] whiteOnY = new int[width];
             for (int x = 0; x < width; x++)
@@ -503,11 +503,11 @@ namespace MeterRecognition
 
             boundsMask = Morphology(boundsMask, width, height, erode: false);
             boundsMask = Morphology(boundsMask, width, height, erode: false);
-            Dump(width, height, boundsMask);
+           // Dump(width, height, boundsMask);
 
             boundsMask = Morphology(boundsMask, width, height, erode: true);
             boundsMask = Morphology(boundsMask, width, height, erode: true);
-            Dump(width, height, boundsMask);
+          //  Dump(width, height, boundsMask);
 
             //const float REQUIRED_CONSECUTIVE_BLACK_BEFORE_SPLIT_POINT_PERC = 0.02f;
             //const float MAX_WHITE_PERC_BEFORE_SEEN_AS_WHITE_FOR_SPLIT_POINT = 0.15f;
