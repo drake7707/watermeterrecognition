@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29209.62
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MeterRecognition", "MeterRecognition.csproj", "{FAF14879-E509-4A2B-9B79-C7B630CC8E0C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MeterRecognitionService", "..\MeterRecognitionService\MeterRecognitionService.csproj", "{0590C940-FF18-4FEC-96BC-6CD8725F91C3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FAF14879-E509-4A2B-9B79-C7B630CC8E0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FAF14879-E509-4A2B-9B79-C7B630CC8E0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FAF14879-E509-4A2B-9B79-C7B630CC8E0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FAF14879-E509-4A2B-9B79-C7B630CC8E0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0590C940-FF18-4FEC-96BC-6CD8725F91C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0590C940-FF18-4FEC-96BC-6CD8725F91C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0590C940-FF18-4FEC-96BC-6CD8725F91C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0590C940-FF18-4FEC-96BC-6CD8725F91C3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9511F0AC-F578-4323-9CDF-309A01A76352}
+	EndGlobalSection
+EndGlobal
