@@ -7,6 +7,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace MeterRecognition
@@ -42,17 +43,22 @@ namespace MeterRecognition
                 writer.WriteLine(headerline);
 
                 string[][] filesPerDigit = new string[10][];
+                int[] counterPerDigit = new int[10];
                 for (int i = 0; i < 10; i++)
                 {
                     var files = System.IO.Directory.GetFiles(System.IO.Path.Combine(baseFolder, i + ""));
-                    filesPerDigit[i] = files;
+                    filesPerDigit[i] = files.OrderBy(f => rnd.Next()).ToArray(); // poor man shuffle, which isn't a very good shuffle but whatever
                 }
 
                 for (int s = 0; s < nrOfSamples; s++)
                 {
                     for (int digit = 0; digit < 10; digit++)
                     {
-                        var digitPath = filesPerDigit[digit][rnd.Next(filesPerDigit[digit].Length)];
+                        //var digitPath = filesPerDigit[digit][rnd.Next(filesPerDigit[digit].Length)];
+                        var digitPath = filesPerDigit[digit][counterPerDigit[digit]];
+                        counterPerDigit[digit]++;
+                        if (counterPerDigit[digit] >= filesPerDigit[digit].Length) // wrap around
+                            counterPerDigit[digit] = 0;
 
                         bool[,] mask = new bool[SAMPLE_WIDTH, SAMPLE_HEIGHT];
                         using (Bitmap bmp = (Bitmap)Bitmap.FromFile(digitPath))
@@ -156,16 +162,135 @@ namespace MeterRecognition
             var outFolder = System.IO.Path.Combine(baseFolder, "clean");
 
 
-            //GenerateCleanAndDigits(baseFolder, outFolder);
-            //BuildSet(outFolder, "testfile.tsv", 100000);
-            //  Train("testfile.tsv");
-            RunPrediction(baseFolder);
+            //GenerateCleanAndDigits(baseFolder);
+            // BuildSet(outFolder, "testfile.tsv", 200000);
+            // Train("testfile.tsv");
+            //RunPrediction(baseFolder);
 
+          //  GeneratePictureFromSet("testfile.tsv", "testfile.png");
 
             //return;
 
+            //LabelAllImagesInFolder(@"D:\Archive-2");
 
-            
+        }
+
+        private static void GeneratePictureFromSet(string setPath, string outputImagePath)
+        {
+            var lines = System.IO.File.ReadLines(setPath);
+            var rowCount = lines.Count() - 1;
+
+            var samplesPerRow =  (int)Math.Ceiling(Math.Sqrt(rowCount));
+
+            lines = System.IO.File.ReadLines(setPath);
+            using (var linesEnum = lines.GetEnumerator())
+            {
+                linesEnum.MoveNext();
+                var headerLine = linesEnum.Current;
+
+                var columns = headerLine.Split('\t');
+                // assume square and label + index as format
+                var sampleWidth = (int)Math.Sqrt(columns.Length - 1);
+                var sampleHeight = sampleWidth;
+
+                using (Bitmap output = new Bitmap(samplesPerRow * sampleWidth, samplesPerRow * sampleHeight, PixelFormat.Format8bppIndexed))
+                {
+                    BitmapData data = output.LockBits(new Rectangle(0, 0, output.Width, output.Height), ImageLockMode.ReadWrite, PixelFormat.Format8bppIndexed);
+
+                    // Copy the bytes from the image into a byte array
+                    byte[] bytes = new byte[data.Height * data.Stride];
+                    Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+
+
+                    linesEnum.MoveNext();
+
+                    int cur = 0;
+                    while (linesEnum.Current != null)
+                    {
+                        var parts = linesEnum.Current.Split('\t');
+
+                        var offsetX = (cur % samplesPerRow) * sampleWidth;
+                        var offsetY = (cur / samplesPerRow) * sampleHeight;
+
+                      
+                        int maskIdx = 0;
+
+                        for (int y = 0; y < sampleHeight; y++)
+                        {
+                            for (int x = 0; x < sampleWidth; x++)
+                            {
+
+                                bytes[(offsetY + y) * data.Stride + (offsetX + x)] = (byte)(parts[1 + maskIdx] == "0" ? 0 : 255);
+                                //output.SetPixel(offsetX + x, offsetY + y, parts[1 + maskIdx] == "0" ? Color.Black : Color.White);
+                                maskIdx++;
+                            }
+                        }
+                        linesEnum.MoveNext();
+                        cur++;
+                    }
+                    // Copy the bytes from the byte array into the image
+                    Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
+
+                    output.UnlockBits(data);
+                    output.Save(outputImagePath);
+                }
+            }
+
+        }
+
+        private static void LabelAllImagesInFolder(string path)
+        {
+            var mlContext = new MLContext(seed: 0);
+
+            ITransformer trainedModel = mlContext.Model.Load("trainedmodel.zip", out var modelInputSchema);
+
+            var schemaDef = SchemaDefinition.Create(typeof(ModelInput));
+            schemaDef[nameof(ModelInput.Pixels)].ColumnType = new VectorDataViewType(NumberDataViewType.Single, SAMPLE_WIDTH * SAMPLE_HEIGHT);
+
+            // Create prediction engine related to the loaded trained model
+            var predEngine = mlContext.Model.CreatePredictionEngine<ModelInput, Prediction>(trainedModel, inputSchemaDefinition: schemaDef);
+
+
+            VBuffer<float> keys = default(VBuffer<float>);
+            predEngine.OutputSchema["PredictedLabel"].GetKeyValues(ref keys);
+            var labelsArray = keys.DenseValues().ToArray();
+
+
+            foreach (var imgPath in System.IO.Directory.GetFiles(path))
+            {
+                var filename = System.IO.Path.GetFileName(imgPath);
+
+                CleanResult cleanResult;
+                using (Bitmap bmp = (Bitmap)Bitmap.FromFile(imgPath))
+                {
+                    cleanResult = Clean(bmp);
+
+                }
+
+                if (cleanResult.Shapes.Count <= 8)
+                {
+                    string predictedString = MakePrediction(predEngine, labelsArray, cleanResult);
+                    Console.WriteLine(filename + "-- > " + predictedString);
+
+                    var newPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(imgPath), predictedString + System.IO.Path.GetExtension(imgPath));
+                    if (System.IO.File.Exists(newPath))
+                    {
+                        int i = 0;
+                        while (System.IO.File.Exists(newPath))
+                        {
+                            newPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(imgPath), predictedString + "_" + i + System.IO.Path.GetExtension(imgPath));
+                            i++;
+                        }
+                    }
+                    System.IO.File.Move(imgPath, newPath);
+
+                }
+                else
+                {
+
+                }
+
+            }
         }
 
         private static void RunPrediction(string baseFolder)
@@ -290,6 +415,9 @@ namespace MeterRecognition
 
 
             int[] digitCounter = new int[10];
+            HashSet<string>[] masks = new HashSet<string>[10];
+            for (int i = 0; i < 10; i++)
+                masks[i] = new HashSet<string>();
 
             foreach (var imgPath in System.IO.Directory.GetFiles(baseFolder))
             {
@@ -314,6 +442,8 @@ namespace MeterRecognition
                                 var digit = digits[i] - '0';
                                 var shape = shapes[i];
 
+
+                                string mask = "";
                                 using (Bitmap shapePixels = new Bitmap(shape.MaxX - shape.MinX + 1, shape.MaxY - shape.MinY + 1))
                                 {
                                     for (int y = 0; y < shapePixels.Height; y++)
@@ -322,14 +452,26 @@ namespace MeterRecognition
                                         {
                                             var col = cleanResult.Result.GetPixel(shape.MinX + x, shape.MinY + y);
                                             if (col.R == 255 && col.G == 255 && col.B == 255)
+                                            {
                                                 shapePixels.SetPixel(x, y, Color.White);
+                                                mask += "1";
+                                            }
                                             else
+                                            {
                                                 shapePixels.SetPixel(x, y, Color.Black);
+                                                mask += "0";
+                                            }
                                         }
                                     }
-                                    var digitPath = System.IO.Path.Combine(outFolder, digit + "", digitCounter[digit] + ".png");
-                                    shapePixels.Save(digitPath);
-                                    digitCounter[digit]++;
+
+                                    // make sure to only save the unique masks
+                                    if (!masks[digit].Contains(mask))
+                                    {
+                                        var digitPath = System.IO.Path.Combine(outFolder, digit + "", digitCounter[digit] + ".png");
+                                        shapePixels.Save(digitPath);
+                                        digitCounter[digit]++;
+                                        masks[digit].Add(mask);
+                                    }
                                 }
                             }
                         }
@@ -404,7 +546,7 @@ namespace MeterRecognition
                     mask[x, y] = range < MAX_VALUE_BEFORE_SEEN_AS_WHITE ? false : true;
                 }
             }
-           // Dump(width, height, mask);
+            // Dump(width, height, mask);
 
 
             int leftBoundary = int.MaxValue;
@@ -503,11 +645,11 @@ namespace MeterRecognition
 
             boundsMask = Morphology(boundsMask, width, height, erode: false);
             boundsMask = Morphology(boundsMask, width, height, erode: false);
-           // Dump(width, height, boundsMask);
+            // Dump(width, height, boundsMask);
 
             boundsMask = Morphology(boundsMask, width, height, erode: true);
             boundsMask = Morphology(boundsMask, width, height, erode: true);
-          //  Dump(width, height, boundsMask);
+            //  Dump(width, height, boundsMask);
 
             //const float REQUIRED_CONSECUTIVE_BLACK_BEFORE_SPLIT_POINT_PERC = 0.02f;
             //const float MAX_WHITE_PERC_BEFORE_SEEN_AS_WHITE_FOR_SPLIT_POINT = 0.15f;
