@@ -162,13 +162,13 @@ namespace MeterRecognition
             var outFolder = System.IO.Path.Combine(baseFolder, "clean");
 
 
-            //GenerateCleanAndDigits(baseFolder);
-            // BuildSet(outFolder, "testfile.tsv", 200000);
-            // Train("testfile.tsv");
-            //RunPrediction(baseFolder);
-
+         //   GenerateCleanAndDigits(baseFolder);
+          //   BuildSet(outFolder, "testfile.tsv", 200000);
+             Train("testfile.tsv");
+            RunPrediction(baseFolder);
+         
           //  GeneratePictureFromSet("testfile.tsv", "testfile.png");
-
+         
             //return;
 
             //LabelAllImagesInFolder(@"D:\Archive-2");

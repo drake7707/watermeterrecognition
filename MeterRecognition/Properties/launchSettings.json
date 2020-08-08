@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "MeterRecognition": {
+      "commandName": "Project",
+      "commandLineArgs": "\"D:\\Documenten\\Programming\\Own C# Projects\\WaterMeterRecognition\\MeterRecognition\\samples\""
+    }
+  }
+}
